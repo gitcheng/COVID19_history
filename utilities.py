@@ -25,7 +25,7 @@ def plot_cumulated_histories(df, i0=0, i1=10, figsize=(15,6), yscale='log', ymax
     fig = plt.figure(figsize=figsize)
     ax = plt.subplot(111) 
     for row in dfp[i0:i1].iterrows():
-        label = '{} ({})'.format(row[0], row[1][-1])
+        label = '{} ({})'.format(row[0], int(row[1][-1]))
         plt.plot_date(row[1].index, row[1], fmt='-', label=label, lw=3, alpha=0.8);
         
     if plot_remaining:
