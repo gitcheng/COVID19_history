@@ -98,9 +98,10 @@ def plot_cumulated_since(ax, df0, countries, threshold=100, yscale='log'):
         label = '{} ({})'.format(idx, int(selrow[-1]))
         if j < 10:
             ax.plot(selrow.values, 'C{}-'.format(j), label=label, lw=3, alpha=0.7);
+            ax.scatter(len(selrow)-1, selrow.values[-1], s=50, marker='o', color='C{}'.format(j%10), linewidths=2)
         else:
             ax.plot(selrow.values, 'C{}--'.format(j%10), label=label, lw=3, alpha=0.7);
-        ax.scatter(len(selrow)-1, selrow.values[-1], s=50, marker='o', color='C{}'.format(j%10), facecolor='none', linewidths=2)
+            ax.scatter(len(selrow)-1, selrow.values[-1], s=50, marker='o', color='C{}'.format(j%10), facecolor='none', linewidths=2)
         
     plt.xticks(fontsize='x-large')
     plt.yticks(fontsize='x-large')
