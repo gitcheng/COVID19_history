@@ -1,8 +1,11 @@
 import pandas as pd
 import matplotlib.pyplot as plt
+import numpy as np
 
 def merge_locals(df):
-    # merge rows of the same country
+    '''
+    merge rows of the same country
+    '''
     country_names = df['Country/Region'].unique()
     columns = df.columns
     df_c = pd.DataFrame(columns=columns[4:])
@@ -17,7 +20,56 @@ def merge_locals(df):
     #df_c = df_c.sort_values(by=columns[-1], ascending=False)
     return df_c
 
-def plot_cumulated_histories(ax, df, i0=0, i1=10, title=None, yscale='log', ymax=None, case='confirmed cases', plot_remaining=False):
+def us_states_data(df):
+    '''
+    Retrieve US data by states and territories
+    '''
+    us_states = ['Alabama', 'Alaska', 'Arizona', 'Arkansas', 'California', 'Colorado', 'Connecticut', \
+                 'Delaware', 'District of Columbia', 'Florida', 'Georgia', 'Guam', 'Hawaii', 'Idaho', \
+                 'Illinois', 'Indiana', 'Iowa', 'Kansas', 'Kentucky', 'Louisiana', 'Maine', 'Maryland',\
+                 'Massachusetts', 'Michigan', 'Minnesota', 'Mississippi', 'Missouri', 'Montana', 'Nebraska',\
+                 'Nevada', 'New Hampshire', 'New Jersey', 'New Mexico', 'New York', 'North Carolina', \
+                 'North Dakota', 'Ohio', 'Oklahoma', 'Oregon', 'Pennsylvania', 'Puerto Rico', 'Rhode Island',\
+                 'South Carolina', 'South Dakota', 'Tennessee', 'Texas', 'Utah', 'Vermont', 'Virgin Islands',\
+                 'Virginia', 'Washington', 'West Virginia', 'Wisconsin', 'Wyoming']
+    state_abbr = dict(AL='Alabama', AK='Alaska', AZ='Arizona', AR='Arkansas', CA='California', CO='Colorado',\
+                      CT='Connecticut', DE='Delaware', DC='District of Columbia', FL='Florida', GA='Georgia',\
+                      HI='Hawaii', ID='Idaho', IL='Illinois', IN='Indiana', IA='Iowa', KS='Kansas', \
+                      KY='Kentucky', LA='Louisiana', ME='Maine', MD='Maryland', MA='Massachusetts', \
+                      MI='Michigan', MN='Minnesota', MS='Mississippi', MO='Missouri', MT='Montana', \
+                      NE='Nebraska', NV='Nevada', NH='New Hampshire', NJ='New Jersey', NM='New Mexico',
+                      NY='New York', NC='North Carolina', ND='North Dakota', OH='Ohio', OK='Oklahoma', \
+                      OR='Oregon', PA='Pennsylvania', RI='Rhode Island', SC='South Carolina', SD='South Dakota',\
+                      TN='Tennessee', TX='Texas', UT='Utah', VT='Vermont', VA='Virginia', WA='Washington',\
+                      WV='West Virginia', WI='Wisconsin', WY='Wyoming')
+    state_abbr['D.C.'] = state_abbr['DC']
+    
+    columns = df.columns
+    ret = pd.DataFrame(columns=columns[4:])
+    for idx, row in df.iterrows():
+        if row['Province/State'] in us_states:
+            myrow = row[4:]
+            myrow.name = row['Province/State']
+            ret = ret.append(myrow)
+            
+    # add county/city data back to state
+    for idx, row in df.iterrows():
+        state = row['Province/State']
+        if type(state) != str:
+            continue
+        fields = [x.strip() for x in state.split(',')]
+        if len(fields) < 2:
+            continue
+        abb = fields[-1]
+        state = state_abbr.get(abb)
+        if not state:
+            continue
+        ret.loc[state] = ret.loc[state] + row[4:]
+        
+    return ret
+    
+    
+def plot_cumulated_histories(ax, df, i0=0, i1=10, title=None, yscale='log', ymax=None, case='confirmed cases', plot_remaining=False, starting_date=None):
     '''
     Plot the history of countries that have the i0-th to i10-th highest confirmed case
     
@@ -39,7 +91,9 @@ def plot_cumulated_histories(ax, df, i0=0, i1=10, title=None, yscale='log', ymax
     if ymax is None:
         ymax = 2 * dfp[df.columns[-1]].max()
         
-    ax.set_ylim(1, ymax)
+    ax.set_ylim(0.8, ymax)
+    if starting_date is not None:
+        ax.set_xlim(pd.to_datetime(starting_date))
     ax.set_yscale(yscale);
     box = ax.get_position()
     ax.set_position([box.x0, box.y0, box.width*0.8, box.height])
@@ -51,7 +105,7 @@ def plot_cumulated_histories(ax, df, i0=0, i1=10, title=None, yscale='log', ymax
     ax.grid(axis='y');
     ax.set_ylabel('Reported {}'.format(case), fontsize='xx-large');
     if title is not None:
-        ax.set_title('{} ({})'.format(title, df.columns[-1]), fontsize='xx-large')
+        ax.set_title('{} (update {})'.format(title, df.columns[-1]), fontsize='xx-large')
     
 def plot_average_rate(ax, df0, ndays, countries, threshold=10):
     '''
@@ -59,9 +113,12 @@ def plot_average_rate(ax, df0, ndays, countries, threshold=10):
     
     df: DataFrame
     ndays: int
-    countries: a list of strings (country names)
+    countries: a list of strings (country or state names), or a number for top n
     '''
-    df = df0.loc[countries]
+    if type(countries) == int:
+        df = df0.sort_values(by=df0.columns[-1], ascending=False)[:countries]
+    else:
+        df = df0.loc[countries]
 
     for idx, row in df.iterrows():
         selrow = row[row >= threshold]
@@ -81,7 +138,7 @@ def plot_average_rate(ax, df0, ndays, countries, threshold=10):
     plt.setp(legend.get_title(), fontsize='x-large')
     ax.grid(axis='y');
     ax.set_ylabel('Rate (%)', fontsize='xx-large');
-    ax.set_title('Confirmed case daily increase rate ({}-day average) of selected countries ({})'.format(ndays, df.columns[-1]), fontsize='xx-large')
+    ax.set_title('Confirmed case daily increase rate ({}-day average) (update {})'.format(ndays, df.columns[-1]), fontsize='xx-large')
 
 
 def plot_cumulated_since(ax, df0, countries, threshold=100, yscale='log'):
@@ -89,10 +146,13 @@ def plot_cumulated_since(ax, df0, countries, threshold=100, yscale='log'):
     Plot cumulated cases since the number of cases is confirmed
     
     df: DataFrame
-    countries: a list of strings (country names)
+    countries: a list of strings (country or state names), or a number for top n
     '''
-    df = df0.loc[countries]
-
+    if type(countries) == int:
+        df = df0.sort_values(by=df0.columns[-1], ascending=False)[:countries]
+    else:
+        df = df0.loc[countries]
+        
     for j, (idx, row) in enumerate(df.iterrows()):
         selrow = row[row >= threshold]
         label = '{} ({})'.format(idx, int(selrow[-1]))
@@ -114,4 +174,4 @@ def plot_cumulated_since(ax, df0, countries, threshold=100, yscale='log'):
     ax.grid(axis='y');
     ax.set_ylabel('Reported confirmed cases', fontsize='xx-large');
     ax.set_xlabel('Days since {}-th case'.format(threshold), fontsize='xx-large')
-    ax.set_title('Confirmed case of selected countries days since {}-th case ({})'.format(threshold, df.columns[-1]), fontsize='xx-large')
+    ax.set_title('Confirmed cases vs. days since {}-th case (update {})'.format(threshold, df.columns[-1]), fontsize='xx-large')
