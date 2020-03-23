@@ -8,7 +8,7 @@ def merge_locals(df):
     '''
     country_names = df['Country/Region'].unique()
     columns = df.columns
-    df_c = pd.DataFrame(columns=columns[4:])
+    df_c = pd.DataFrame(columns=columns[4:], dtype=int)
     for cn in country_names:
         row = df[df['Country/Region']==cn].sum()
         row = row[4:]
@@ -45,7 +45,7 @@ def us_states_data(df):
     state_abbr['D.C.'] = state_abbr['DC']
     
     columns = df.columns
-    ret = pd.DataFrame(columns=columns[4:])
+    ret = pd.DataFrame(columns=columns[4:], dtype=int)
     for idx, row in df.iterrows():
         if row['Province/State'] in us_states:
             myrow = row[4:]
@@ -74,12 +74,14 @@ def plot_cumulated_histories(ax, df, i0=0, i1=10, title=None, yscale='log', ymax
     Plot the history of countries that have the i0-th to i10-th highest confirmed case
     
     ax: axes
+    df: dataframe
+    i0, i1: (i0+1)-th to i1-th highest are ploted.
     case: 'confirmed cases' or 'deaths'
     '''
     dfp = df.sort_values(by=df.columns[-1], ascending=False)
-    for row in dfp[i0:i1].iterrows():
-        label = '{} ({})'.format(row[0], int(row[1][-1]))
-        ax.plot_date(row[1].index, row[1], fmt='-', label=label, lw=3, alpha=0.8);
+    for idx, row in dfp[i0:i1].iterrows():
+        label = '{} ({})'.format(idx, int(row[-1]))
+        ax.plot_date(row.index, row, fmt='-', label=label, lw=3, alpha=0.8);
         
     if plot_remaining:
         row = dfp[i1:].sum()
@@ -89,9 +91,15 @@ def plot_cumulated_histories(ax, df, i0=0, i1=10, title=None, yscale='log', ymax
     plt.setp(ax.get_yticklabels(), fontsize='x-large')
     plt.setp(ax.get_xticklabels(), fontsize='x-large', rotation=35)
     if ymax is None:
-        ymax = 2 * dfp[df.columns[-1]].max()
-        
-    ax.set_ylim(0.8, ymax)
+        if yscale == 'log':
+            ymax = 2 * dfp[df.columns[-1]].max()
+        else:
+            ymax = 1.07 * dfp[df.columns[-1]].max()
+    if yscale == 'log':
+        ax.set_ylim(0.8, ymax)
+    else:
+        ax.set_ylim(0, ymax)
+
     if starting_date is not None:
         ax.set_xlim(pd.to_datetime(starting_date))
     ax.set_yscale(yscale);
@@ -107,6 +115,43 @@ def plot_cumulated_histories(ax, df, i0=0, i1=10, title=None, yscale='log', ymax
     if title is not None:
         ax.set_title('{} (update {})'.format(title, df.columns[-1]), fontsize='xx-large')
     
+
+def plot_fatality_ratio(ax, df_death, df_confirmed, i0=0, i1=10, min_cases=1000, threshold=100, title=None, yscale='linear', legend_title='Country'):
+    '''
+    Plot the case fatality ratio to date (deaths/confirmed)
+
+    ax: axes
+    df_death: dataframe of deaths
+    df_confirmed: dataframe of confirmed cases
+    i0, i1: (i0+1)-th to i1-th highest are ploted
+    min_cases: the minimum number of confirmed cases
+    '''
+    sel = df_confirmed.iloc[:,-1] >= min_cases
+
+    dfd = df_death.loc[sel]
+    dfc = df_confirmed.loc[sel]
+
+    df_ratio = 100 * dfd / dfc
+    dfp = df_ratio.sort_values(by=df_ratio.columns[-1], ascending=False)
+    for idx, row in dfp[i0:i1].iterrows():
+        label = '{} ({:.2f}%)'.format(idx, row[-1])
+        sel = dfc.loc[idx] >= threshold
+        ax.plot_date(row.loc[sel].index, row.loc[sel], fmt='-', label=label, lw=3, alpha=0.8);
+
+    plt.setp(ax.get_yticklabels(), fontsize='x-large')
+    plt.setp(ax.get_xticklabels(), fontsize='x-large', rotation=35)
+
+    ax.set_yscale(yscale);
+    box = ax.get_position()
+    ax.set_position([box.x0, box.y0, box.width*0.8, box.height])
+    legend = ax.legend(bbox_to_anchor=(1.00, 1), loc='upper left', fontsize='x-large', title='{} (ratio)'.format(legend_title))
+    plt.setp(legend.get_title(),fontsize='x-large')
+    ax.grid(axis='y');
+    ax.set_ylabel('Reported case fatality ratio', fontsize='xx-large');
+    if title is not None:
+        ax.set_title('{} (update {})'.format(title, df_ratio.columns[-1]), fontsize='xx-large')
+    
+
 def plot_average_rate(ax, df0, ndays, countries, threshold=10):
     '''
     Plot history of n-day average of daily increase percentage of selected countries.
@@ -175,3 +220,6 @@ def plot_cumulated_since(ax, df0, countries, threshold=100, yscale='log'):
     ax.set_ylabel('Reported confirmed cases', fontsize='xx-large');
     ax.set_xlabel('Days since {}-th case'.format(threshold), fontsize='xx-large')
     ax.set_title('Confirmed cases vs. days since {}-th case (update {})'.format(threshold, df.columns[-1]), fontsize='xx-large')
+
+
+
