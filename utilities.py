@@ -68,6 +68,14 @@ def us_states_data(df):
         
     return ret
     
+
+def region_label(key):
+    dd = {'United Kingdom': 'UK', 'Korea, South': 'Korea, S.'}
+    ret = dd.get(key)
+    if ret is None:
+        ret = key
+    return ret
+
     
 def plot_cumulated_histories(ax, df, i0=0, i1=10, title=None, yscale='log', ymax=None, case='confirmed cases', plot_remaining=False, starting_date=None):
     '''
@@ -80,7 +88,8 @@ def plot_cumulated_histories(ax, df, i0=0, i1=10, title=None, yscale='log', ymax
     '''
     dfp = df.sort_values(by=df.columns[-1], ascending=False)
     for idx, row in dfp[i0:i1].iterrows():
-        label = '{} ({})'.format(idx, int(row[-1]))
+        region = region_label(idx)
+        label = '{} ({})'.format(region, int(row[-1]))
         ax.plot_date(row.index, row, fmt='-', label=label, lw=3, alpha=0.8);
         
     if plot_remaining:
@@ -134,7 +143,8 @@ def plot_fatality_ratio(ax, df_death, df_confirmed, i0=0, i1=10, min_cases=1000,
     df_ratio = 100 * dfd / dfc
     dfp = df_ratio.sort_values(by=df_ratio.columns[-1], ascending=False)
     for idx, row in dfp[i0:i1].iterrows():
-        label = '{} ({:.2f}%)'.format(idx, row[-1])
+        region = region_label(idx)
+        label = '{} ({:.2f}%)'.format(region, row[-1])
         sel = dfc.loc[idx] >= threshold
         ax.plot_date(row.loc[sel].index, row.loc[sel], fmt='-', label=label, lw=3, alpha=0.8);
 
@@ -151,6 +161,34 @@ def plot_fatality_ratio(ax, df_death, df_confirmed, i0=0, i1=10, min_cases=1000,
     if title is not None:
         ax.set_title('{} (update {})'.format(title, df_ratio.columns[-1]), fontsize='xx-large')
     
+
+def doubling_time(rate):
+    '''
+    Return a string of the length of time to double
+
+    rate: daily increase fraction
+    '''
+    if rate < 1e-6:
+        return 'never'
+    days = np.log(2) / np.log(1 + rate)
+    if days > 1000:
+        return 'long time'
+    if days >= 365:
+        ret = '{:.1f} y'.format(days/365)
+        return ret
+    if days >= 30:
+        ret = '{:.1f} mo'.format(days/30)
+        if ret == '12.0 mo':
+            ret = '1.0 y'
+        return ret
+    if days >= 7:
+        ret = '{:.1f} w'.format(days/7)
+        return ret
+    ret = '{:.1f} d'.format(days)
+    if ret == '7.0 d':
+        ret = '1.0 w'
+    return ret
+
 
 def plot_average_rate(ax, df0, ndays, countries, threshold=10):
     '''
@@ -169,7 +207,12 @@ def plot_average_rate(ax, df0, ndays, countries, threshold=10):
         selrow = row[row >= threshold]
         diff = selrow.diff(ndays)
         averate = (selrow / (selrow - diff))**(1/ndays) - 1
-        label = '{} ({}%)'.format(idx, int(100*averate[-1]))
+        dt = doubling_time(averate[-1])
+        region = region_label(idx)
+        if averate[-1] < 0.099:
+            label = '{} ({:.1f}%,  {})'.format(region, 100*averate[-1], dt)
+        else:
+            label = '{} ({}%,  {})'.format(region, int(100*averate[-1]), dt)
         ax.plot_date(selrow.index, 100*averate, fmt='-', label=label, lw=3, alpha=0.7);
         
     plt.setp(ax.get_yticklabels(), fontsize='x-large')
@@ -179,7 +222,7 @@ def plot_average_rate(ax, df0, ndays, countries, threshold=10):
     #plt.yscale(yscale);
     box = ax.get_position()
     ax.set_position([box.x0, box.y0, box.width*0.8, box.height])
-    legend = ax.legend(bbox_to_anchor=(1.00, 1), loc='upper left', fontsize='x-large', title='Country (rate)')
+    legend = ax.legend(bbox_to_anchor=(1.00, 1), loc='upper left', fontsize='x-large', title='Country (rate, doubling time)')
     plt.setp(legend.get_title(), fontsize='x-large')
     ax.grid(axis='y');
     ax.set_ylabel('Rate (%)', fontsize='xx-large');
@@ -200,7 +243,8 @@ def plot_cumulated_since(ax, df0, countries, threshold=100, yscale='log'):
         
     for j, (idx, row) in enumerate(df.iterrows()):
         selrow = row[row >= threshold]
-        label = '{} ({})'.format(idx, int(selrow[-1]))
+        region = region_label(idx)
+        label = '{} ({})'.format(region, int(selrow[-1]))
         if j < 10:
             ax.plot(selrow.values, 'C{}-'.format(j), label=label, lw=3, alpha=0.7);
             ax.scatter(len(selrow)-1, selrow.values[-1], s=50, marker='o', color='C{}'.format(j%10), linewidths=2)
