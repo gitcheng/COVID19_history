@@ -2,6 +2,33 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 
+
+us_states = ['Alabama', 'Alaska', 'Arizona', 'Arkansas', 'California', 'Colorado', 
+            'Connecticut', 'Delaware', 'District of Columbia', 'Florida', 'Georgia', 
+            'Guam', 'Hawaii', 'Idaho', 'Illinois', 'Indiana', 'Iowa', 'Kansas', 
+            'Kentucky', 'Louisiana', 'Maine', 'Maryland', 'Massachusetts', 'Michigan',
+            'Minnesota', 'Mississippi', 'Missouri', 'Montana', 'Nebraska', 'Nevada', 
+            'New Hampshire', 'New Jersey', 'New Mexico', 'New York', 'North Carolina', 
+            'North Dakota', 'Ohio', 'Oklahoma', 'Oregon', 'Pennsylvania', 'Puerto Rico',
+            'Rhode Island', 'South Carolina', 'South Dakota', 'Tennessee', 'Texas', 
+            'Utah', 'Vermont', 'Virgin Islands', 'Virginia', 'Washington', 
+            'West Virginia', 'Wisconsin', 'Wyoming']
+state_abbr = dict(AL='Alabama', AK='Alaska', AZ='Arizona', AR='Arkansas', 
+                  CA='California', CO='Colorado', CT='Connecticut', DE='Delaware', 
+                  DC='District of Columbia', FL='Florida', GA='Georgia', HI='Hawaii', 
+                  ID='Idaho', IL='Illinois', IN='Indiana', IA='Iowa', KS='Kansas',
+                  KY='Kentucky', LA='Louisiana', ME='Maine', MD='Maryland', 
+                  MA='Massachusetts', MI='Michigan', MN='Minnesota', MS='Mississippi',
+                  MO='Missouri', MT='Montana', NE='Nebraska', NV='Nevada',
+                  NH='New Hampshire', NJ='New Jersey', NM='New Mexico', NY='New York',
+                  NC='North Carolina', ND='North Dakota', OH='Ohio', OK='Oklahoma',
+                  OR='Oregon', PA='Pennsylvania', RI='Rhode Island', SC='South Carolina',
+                  SD='South Dakota', TN='Tennessee', TX='Texas', UT='Utah', VT='Vermont',
+                  VA='Virginia', WA='Washington', WV='West Virginia', WI='Wisconsin',
+                  WY='Wyoming')
+state_abbr['D.C.'] = state_abbr['DC']
+
+
 def merge_locals(df):
     '''
     merge rows of the same country
@@ -24,25 +51,6 @@ def us_states_data(df):
     '''
     Retrieve US data by states and territories
     '''
-    us_states = ['Alabama', 'Alaska', 'Arizona', 'Arkansas', 'California', 'Colorado', 'Connecticut', \
-                 'Delaware', 'District of Columbia', 'Florida', 'Georgia', 'Guam', 'Hawaii', 'Idaho', \
-                 'Illinois', 'Indiana', 'Iowa', 'Kansas', 'Kentucky', 'Louisiana', 'Maine', 'Maryland',\
-                 'Massachusetts', 'Michigan', 'Minnesota', 'Mississippi', 'Missouri', 'Montana', 'Nebraska',\
-                 'Nevada', 'New Hampshire', 'New Jersey', 'New Mexico', 'New York', 'North Carolina', \
-                 'North Dakota', 'Ohio', 'Oklahoma', 'Oregon', 'Pennsylvania', 'Puerto Rico', 'Rhode Island',\
-                 'South Carolina', 'South Dakota', 'Tennessee', 'Texas', 'Utah', 'Vermont', 'Virgin Islands',\
-                 'Virginia', 'Washington', 'West Virginia', 'Wisconsin', 'Wyoming']
-    state_abbr = dict(AL='Alabama', AK='Alaska', AZ='Arizona', AR='Arkansas', CA='California', CO='Colorado',\
-                      CT='Connecticut', DE='Delaware', DC='District of Columbia', FL='Florida', GA='Georgia',\
-                      HI='Hawaii', ID='Idaho', IL='Illinois', IN='Indiana', IA='Iowa', KS='Kansas', \
-                      KY='Kentucky', LA='Louisiana', ME='Maine', MD='Maryland', MA='Massachusetts', \
-                      MI='Michigan', MN='Minnesota', MS='Mississippi', MO='Missouri', MT='Montana', \
-                      NE='Nebraska', NV='Nevada', NH='New Hampshire', NJ='New Jersey', NM='New Mexico',
-                      NY='New York', NC='North Carolina', ND='North Dakota', OH='Ohio', OK='Oklahoma', \
-                      OR='Oregon', PA='Pennsylvania', RI='Rhode Island', SC='South Carolina', SD='South Dakota',\
-                      TN='Tennessee', TX='Texas', UT='Utah', VT='Vermont', VA='Virginia', WA='Washington',\
-                      WV='West Virginia', WI='Wisconsin', WY='Wyoming')
-    state_abbr['D.C.'] = state_abbr['DC']
     
     columns = df.columns
     ret = pd.DataFrame(columns=columns[4:], dtype=int)
@@ -246,11 +254,13 @@ def plot_cumulated_since(ax, df0, countries, threshold=100, yscale='log'):
         region = region_label(idx)
         label = '{} ({})'.format(region, int(selrow[-1]))
         if j < 10:
-            ax.plot(selrow.values, 'C{}-'.format(j), label=label, lw=3, alpha=0.7);
-            ax.scatter(len(selrow)-1, selrow.values[-1], s=50, marker='o', color='C{}'.format(j%10), linewidths=2)
+            lst = '-'
+        elif j < 20:
+            lst = '--'
         else:
-            ax.plot(selrow.values, 'C{}--'.format(j%10), label=label, lw=3, alpha=0.7);
-            ax.scatter(len(selrow)-1, selrow.values[-1], s=50, marker='o', color='C{}'.format(j%10), facecolor='none', linewidths=2)
+            lst = ':'
+        ax.plot(selrow.values, 'C{}{}'.format(j%10,lst), label=label, lw=3, alpha=0.7);
+        ax.scatter(len(selrow)-1, selrow.values[-1], s=50, marker='o', color='C{}'.format(j%10), linewidths=2)
         
     plt.xticks(fontsize='x-large')
     plt.yticks(fontsize='x-large')
@@ -265,5 +275,51 @@ def plot_cumulated_since(ax, df0, countries, threshold=100, yscale='log'):
     ax.set_xlabel('Days since {}-th case'.format(threshold), fontsize='xx-large')
     ax.set_title('Confirmed cases vs. days since {}-th case (update {})'.format(threshold, df.columns[-1]), fontsize='xx-large')
 
+
+def plot_new_vs_existing(ax, df0, ndays, countries, threshold=1, legend_title='Country', case_type='Confirmed cases'):
+    '''
+    Plot confirmed cases in the past ndays vs existing cases
+
+    df: DataFrame
+    ndays: int
+    countries: a list of strings (country or state names), or a number for top n
+    threshold: 
+    '''
+    if type(countries) == int:
+        df = df0.sort_values(by=df0.columns[-1], ascending=False)[:countries]
+    else:
+        df = df0.loc[countries]
+
+    for j, (idx, row) in enumerate(df.iterrows()):
+        selrow = row[row >= threshold]
+        diff = selrow.diff(ndays)
+        region = region_label(idx)
+        label = '{} ({:d})'.format(region, int(selrow[-1]))
+        facecolor=None
+        if j < 10:
+            lst = '-'
+        elif j < 20:
+            lst = '--'
+            facecolor='none'
+        else:
+            lst = ':'
+            facecolor='none'
+        ax.plot(selrow, diff, 'C{}{}'.format(j%10,lst), label=label, lw=3, alpha=0.7)
+        ax.scatter(selrow[-1], diff[-1], s=50, marker='o', color='C{}'.format(j%10), linewidths=2, facecolor=facecolor)
+
+
+    plt.setp(ax.get_xticklabels(), fontsize='x-large')
+    plt.setp(ax.get_yticklabels(), fontsize='x-large')
+    ax.set_yscale('log')
+    ax.set_xscale('log')
+    
+    box = ax.get_position()
+    ax.set_position([box.x0, box.y0, box.width*0.8, box.height])
+    legend = ax.legend(bbox_to_anchor=(1.00, 1), loc='upper left', fontsize='x-large', title='{} (#cases)'.format(legend_title))
+    plt.setp(legend.get_title(), fontsize='x-large')
+    ax.grid();
+    ax.set_xlabel('Existing cases', fontsize='xx-large')
+    ax.set_ylabel('New cases in past {} days'.format(ndays), fontsize='xx-large');
+    ax.set_title('New {} in past {} days vs. existing cases (update {})'.format(case_type, ndays, df.columns[-1]), fontsize='xx-large')
 
 
