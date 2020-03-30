@@ -1,7 +1,8 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
-
+from datetime import date, timedelta
+import re, warnings
 
 us_states = ['Alabama', 'Alaska', 'Arizona', 'Arkansas', 'California', 'Colorado', 
             'Connecticut', 'Delaware', 'District of Columbia', 'Florida', 'Georgia', 
@@ -12,7 +13,8 @@ us_states = ['Alabama', 'Alaska', 'Arizona', 'Arkansas', 'California', 'Colorado
             'North Dakota', 'Ohio', 'Oklahoma', 'Oregon', 'Pennsylvania', 'Puerto Rico',
             'Rhode Island', 'South Carolina', 'South Dakota', 'Tennessee', 'Texas', 
             'Utah', 'Vermont', 'Virgin Islands', 'Virginia', 'Washington', 
-            'West Virginia', 'Wisconsin', 'Wyoming']
+            'West Virginia', 'Wisconsin', 'Wyoming', 'American Samoa',
+            'Northern Mariana Islands']
 state_abbr = dict(AL='Alabama', AK='Alaska', AZ='Arizona', AR='Arkansas', 
                   CA='California', CO='Colorado', CT='Connecticut', DE='Delaware', 
                   DC='District of Columbia', FL='Florida', GA='Georgia', HI='Hawaii', 
@@ -85,7 +87,7 @@ def region_label(key):
     return ret
 
     
-def plot_cumulated_histories(ax, df, i0=0, i1=10, title=None, yscale='log', ymax=None, case='confirmed cases', plot_remaining=False, starting_date=None):
+def plot_cumulated_histories(ax, df, i0=0, i1=10, title=None, yscale='log', ymax=None, case='confirmed cases', plot_remaining=False, starting_date=None, legend_title='Country'):
     '''
     Plot the history of countries that have the i0-th to i10-th highest confirmed case
     
@@ -95,10 +97,19 @@ def plot_cumulated_histories(ax, df, i0=0, i1=10, title=None, yscale='log', ymax
     case: 'confirmed cases' or 'deaths'
     '''
     dfp = df.sort_values(by=df.columns[-1], ascending=False)
-    for idx, row in dfp[i0:i1].iterrows():
+    for j, (idx, row) in enumerate(dfp[i0:i1].iterrows()):
+        facecolor=None
+        if j < 10:
+            lst = '-'
+        elif j < 20:
+            lst = '--'
+            facecolor='none'
+        else:
+            lst = ':'
+            facecolor='none'
         region = region_label(idx)
         label = '{} ({})'.format(region, int(row[-1]))
-        ax.plot_date(row.index, row, fmt='-', label=label, lw=3, alpha=0.8);
+        ax.plot_date(row.index, row, fmt=lst, label=label, lw=3, alpha=0.8);
         
     if plot_remaining:
         row = dfp[i1:].sum()
@@ -123,9 +134,9 @@ def plot_cumulated_histories(ax, df, i0=0, i1=10, title=None, yscale='log', ymax
     box = ax.get_position()
     ax.set_position([box.x0, box.y0, box.width*0.8, box.height])
     if case == 'deaths':
-        legend = ax.legend(bbox_to_anchor=(1.00, 1), loc='upper left', fontsize='x-large', title='Country (# deaths)')
+        legend = ax.legend(bbox_to_anchor=(1.00, 1), loc='upper left', fontsize='x-large', title='{} (# deaths)'.format(legend_title))
     else:
-        legend = ax.legend(bbox_to_anchor=(1.00, 1), loc='upper left', fontsize='x-large', title='Country (# cases)')
+        legend = ax.legend(bbox_to_anchor=(1.00, 1), loc='upper left', fontsize='x-large', title='{} (# cases)'.format(legend_title))
     plt.setp(legend.get_title(),fontsize='x-large')
     ax.grid(axis='y');
     ax.set_ylabel('Reported {}'.format(case), fontsize='xx-large');
@@ -150,11 +161,20 @@ def plot_fatality_ratio(ax, df_death, df_confirmed, i0=0, i1=10, min_cases=1000,
 
     df_ratio = 100 * dfd / dfc
     dfp = df_ratio.sort_values(by=df_ratio.columns[-1], ascending=False)
-    for idx, row in dfp[i0:i1].iterrows():
+    for j, (idx, row) in enumerate(dfp[i0:i1].iterrows()):
+        facecolor=None
+        if j < 10:
+            lst = '-'
+        elif j < 20:
+            lst = '--'
+            facecolor='none'
+        else:
+            lst = ':'
+            facecolor='none'
         region = region_label(idx)
         label = '{} ({:.2f}%)'.format(region, row[-1])
         sel = dfc.loc[idx] >= threshold
-        ax.plot_date(row.loc[sel].index, row.loc[sel], fmt='-', label=label, lw=3, alpha=0.8);
+        ax.plot_date(row.loc[sel].index, row.loc[sel], fmt=lst, label=label, lw=3, alpha=0.8);
 
     plt.setp(ax.get_yticklabels(), fontsize='x-large')
     plt.setp(ax.get_xticklabels(), fontsize='x-large', rotation=35)
@@ -198,7 +218,7 @@ def doubling_time(rate):
     return ret
 
 
-def plot_average_rate(ax, df0, ndays, countries, threshold=10):
+def plot_average_rate(ax, df0, ndays, countries, threshold=10, legend_title='Country', title_head='Confirmed cases'):
     '''
     Plot history of n-day average of daily increase percentage of selected countries.
     
@@ -211,17 +231,29 @@ def plot_average_rate(ax, df0, ndays, countries, threshold=10):
     else:
         df = df0.loc[countries]
 
-    for idx, row in df.iterrows():
+    for j, (idx, row) in enumerate(df.iterrows()):
+        region = region_label(idx)
         selrow = row[row >= threshold]
         diff = selrow.diff(ndays)
         averate = (selrow / (selrow - diff))**(1/ndays) - 1
+        print(averate)
         dt = doubling_time(averate[-1])
-        region = region_label(idx)
         if averate[-1] < 0.099:
             label = '{} ({:.1f}%,  {})'.format(region, 100*averate[-1], dt)
         else:
             label = '{} ({}%,  {})'.format(region, int(100*averate[-1]), dt)
-        ax.plot_date(selrow.index, 100*averate, fmt='-', label=label, lw=3, alpha=0.7);
+
+        facecolor=None
+        if j < 10:
+            lst = '-'
+        elif j < 20:
+            lst = '--'
+            facecolor='none'
+        else:
+            lst = ':'
+            facecolor='none'
+
+        ax.plot_date(selrow.index, 100*averate, fmt=lst, label=label, lw=3, alpha=0.7);
         
     plt.setp(ax.get_yticklabels(), fontsize='x-large')
     plt.setp(ax.get_xticklabels(), fontsize='x-large', rotation=35)
@@ -230,14 +262,14 @@ def plot_average_rate(ax, df0, ndays, countries, threshold=10):
     #plt.yscale(yscale);
     box = ax.get_position()
     ax.set_position([box.x0, box.y0, box.width*0.8, box.height])
-    legend = ax.legend(bbox_to_anchor=(1.00, 1), loc='upper left', fontsize='x-large', title='Country (rate, doubling time)')
+    legend = ax.legend(bbox_to_anchor=(1.00, 1), loc='upper left', fontsize='x-large', title='{} (rate, doubling time)'.format(legend_title))
     plt.setp(legend.get_title(), fontsize='x-large')
     ax.grid(axis='y');
     ax.set_ylabel('Rate (%)', fontsize='xx-large');
-    ax.set_title('Confirmed case daily increase rate ({}-day average) (update {})'.format(ndays, df.columns[-1]), fontsize='xx-large')
+    ax.set_title('{} daily increase rate ({}-day average) (update {})'.format(title_head, ndays, df.columns[-1]), fontsize='xx-large')
 
 
-def plot_cumulated_since(ax, df0, countries, threshold=100, yscale='log'):
+def plot_cumulated_since(ax, df0, countries, threshold=100, yscale='log', legend_title='Country'):
     '''
     Plot cumulated cases since the number of cases is confirmed
     
@@ -253,14 +285,17 @@ def plot_cumulated_since(ax, df0, countries, threshold=100, yscale='log'):
         selrow = row[row >= threshold]
         region = region_label(idx)
         label = '{} ({})'.format(region, int(selrow[-1]))
+        facecolor=None
         if j < 10:
             lst = '-'
         elif j < 20:
             lst = '--'
+            facecolor='none'
         else:
             lst = ':'
+            facecolor='none'
         ax.plot(selrow.values, 'C{}{}'.format(j%10,lst), label=label, lw=3, alpha=0.7);
-        ax.scatter(len(selrow)-1, selrow.values[-1], s=50, marker='o', color='C{}'.format(j%10), linewidths=2)
+        ax.scatter(len(selrow)-1, selrow.values[-1], s=50, marker='o', color='C{}'.format(j%10), linewidths=2, facecolor=facecolor)
         
     plt.xticks(fontsize='x-large')
     plt.yticks(fontsize='x-large')
@@ -268,7 +303,7 @@ def plot_cumulated_since(ax, df0, countries, threshold=100, yscale='log'):
     
     box = ax.get_position()
     ax.set_position([box.x0, box.y0, box.width*0.8, box.height])
-    legend = ax.legend(bbox_to_anchor=(1.00, 1), loc='upper left', fontsize='x-large', title='Country (# cases)')
+    legend = ax.legend(bbox_to_anchor=(1.00, 1), loc='upper left', fontsize='x-large', title='{} (# cases)'.format(legend_title))
     plt.setp(legend.get_title(),fontsize='x-large')
     ax.grid(axis='y');
     ax.set_ylabel('Reported confirmed cases', fontsize='xx-large');
@@ -322,4 +357,143 @@ def plot_new_vs_existing(ax, df0, ndays, countries, threshold=1, legend_title='C
     ax.set_ylabel('New cases in past {} days'.format(ndays), fontsize='xx-large');
     ax.set_title('New {} in past {} days vs. existing cases (update {})'.format(case_type, ndays, df.columns[-1]), fontsize='xx-large')
 
+
+def extract_state_name(string):
+    '''
+    Extract the full state name from a string
+    '''
+    if string.startswith('Unassigned') or string.startswith('Diamond Princess') or string.startswith('Grand Princess'):
+        return None
+
+    if string in ['Grand Princess', 'US', 'Wuhan Evacuee', 'Recovered']:
+        return None
+
+    if string == 'Chicago':
+        return 'Illinois'
+
+    if re.search('Virgin Islands', string):
+        return 'Virgin Islands'
+
+    fields = [x.strip() for x in string.split(',')]
+
+    if len(fields) == 1:
+        if fields[0] in us_states:
+            return fields[0]
+        else:
+            print(fields)
+            raise ValueError('Cannot get the state name from the string {}'.format(string))
+    #
+    fields2 = fields[1].split()
+    sbr = fields2[0]
+    try:
+        ret = state_abbr[sbr]
+    except:
+        raise ValueError('Unknown abbreviation {} from the string {}'.format(sbr, string))
+    return ret
+
+def find_us_state_cases(dfdaily):
+    '''
+    Return 3 lists of confirmed, deaths, and recovered cases. 
+    The order is based on us_states list
+
+    dfdaily: daily state report DataFrame
+    '''
+    columns = dfdaily.columns
+    if 'Country/Region' in columns:
+        dfus = dfdaily.loc[dfdaily['Country/Region']=='US']
+    elif 'Country_Region' in columns:
+        dfus = dfdaily.loc[dfdaily['Country_Region']=='US']
+    else:
+        print(columns)
+        raise ValueError('Which column is US in?')
+    if 'Province/State' in columns:
+        col_state = 'Province/State'
+    elif 'Province_State' in columns:
+        col_state = 'Province_State'
+    else:
+        print(columns)
+        raise ValueError('Which column is states in?')
+
+    #print(dfus.columns)
+    confirmed = {}
+    deaths = {}
+    recovered = {}
+    for sn in us_states:
+        confirmed[sn] = 0
+        deaths[sn] = 0
+        recovered[sn] = 0
+    for idx, row in dfus.iterrows():
+        state = row[col_state]
+        state_name = extract_state_name(state)
+        if state_name is None:
+            continue
+        confirmed[state_name] += row['Confirmed']
+        deaths[state_name] += row['Deaths']
+        recovered[state_name] += row['Recovered']
+
+    clist = [confirmed[k] for k in us_states]
+    dlist = [deaths[k] for k in us_states]
+    rlist = [recovered[k] for k in us_states]
+    return clist, dlist, rlist
+
+
+def us_states_dataframe_from_daily_report(start_date, end_date):
+    '''
+    Return 3 dataframes of states data (row index is state, column is date):
+    confirmed df, deaths df, and recovered df.
+    '''
+    dtrange = pd.date_range(start_date, end_date)
+    path = 'https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_daily_reports'
+    d_confirmed = {}
+    d_deaths = {}
+    d_recovered = {}
+    for dt in dtrange:
+        dstr = dt.strftime('%m-%d-%Y')
+        url = path+'/{}.csv'.format(dstr)
+        try:
+            data = pd.read_csv(url)
+        except:
+            warnings.warn('Cannot read from URL {}'.format(url))
+            continue
+        confirmed, deaths, recovered = find_us_state_cases(data)
+        d_confirmed[dstr] = confirmed
+        d_deaths[dstr] = deaths
+        d_recovered[dstr] = recovered
+
+    df_confirmed = pd.DataFrame(data=d_confirmed, index=us_states)
+    df_deaths = pd.DataFrame(data=d_deaths, index=us_states)
+    df_recovered = pd.DataFrame(data=d_recovered, index=us_states)
+
+    return df_confirmed, df_deaths, df_recovered
+
+
+def update_us_states_dataframe(df_orig, end_date=None, case_type='confirmed'):
+    '''
+    Return a new dataframe of us states stats with update up to end_date:
+
+    df_orig: the original dataframe
+    end_date: end date. If None, set to today's date
+    case_type: 'confirmed', 'deaths', or 'recovered'
+    '''
+    if end_date is None:
+        end_date = date.today()
+
+    # get the last date plus one day as the start date
+    start_date = pd.to_datetime(df_orig.columns[-1]) + timedelta(days=1)
+    #print(start_date, end_date)
+    # additional data
+    dconf, ddeaths, drecov = us_states_dataframe_from_daily_report(start_date, end_date) 
+    if case_type == 'confirmed':
+        df = dconf
+    elif case_type == 'deaths':
+        df = ddeaths
+    elif case_type == 'recovered':
+        df = drecov
+    else:
+        raise ValueError('unknown case_type {}'.format(case_type))
+
+    result = pd.concat([df_orig, df], axis=1, sort=False)
+
+
+    return result
 
