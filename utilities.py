@@ -218,7 +218,7 @@ def doubling_time(rate):
     return ret
 
 
-def plot_average_rate(ax, df0, ndays, countries, threshold=10, legend_title='Country', title_head='Confirmed cases'):
+def plot_average_rate(ax, df0, ndays, countries, threshold=10, legend_title='Country', title_head='Confirmed case'):
     '''
     Plot history of n-day average of daily increase percentage of selected countries.
     
@@ -236,7 +236,6 @@ def plot_average_rate(ax, df0, ndays, countries, threshold=10, legend_title='Cou
         selrow = row[row >= threshold]
         diff = selrow.diff(ndays)
         averate = (selrow / (selrow - diff))**(1/ndays) - 1
-        print(averate)
         dt = doubling_time(averate[-1])
         if averate[-1] < 0.099:
             label = '{} ({:.1f}%,  {})'.format(region, 100*averate[-1], dt)
@@ -311,7 +310,7 @@ def plot_cumulated_since(ax, df0, countries, threshold=100, yscale='log', legend
     ax.set_title('Confirmed cases vs. days since {}-th case (update {})'.format(threshold, df.columns[-1]), fontsize='xx-large')
 
 
-def plot_new_vs_existing(ax, df0, ndays, countries, threshold=1, legend_title='Country', case_type='Confirmed cases'):
+def plot_new_vs_existing(ax, df0, ndays, countries, threshold=1, legend_title='Country', case_type='Confirmed case'):
     '''
     Plot confirmed cases in the past ndays vs existing cases
 
