@@ -218,7 +218,7 @@ def doubling_time(rate):
     return ret
 
 
-def plot_average_rate(ax, df0, ndays, countries, threshold=10, legend_title='Country', title_head='Confirmed case'):
+def plot_average_rate(ax, df0, ndays, countries, threshold=10, legend_title='Country', title_head='Confirmed case', ymax=101):
     '''
     Plot history of n-day average of daily increase percentage of selected countries.
     
@@ -257,7 +257,7 @@ def plot_average_rate(ax, df0, ndays, countries, threshold=10, legend_title='Cou
     plt.setp(ax.get_yticklabels(), fontsize='x-large')
     plt.setp(ax.get_xticklabels(), fontsize='x-large', rotation=35)
         
-    ax.set_ylim(-1,101)
+    ax.set_ylim(-1, ymax)
     #plt.yscale(yscale);
     box = ax.get_position()
     ax.set_position([box.x0, box.y0, box.width*0.8, box.height])
