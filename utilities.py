@@ -240,7 +240,7 @@ def plot_average_rate(ax, df0, ndays, countries, threshold=10, legend_title='Cou
         if averate[-1] < 0.099:
             label = '{} ({:.1f}%,  {})'.format(region, 100*averate[-1], dt)
         else:
-            label = '{} ({}%,  {})'.format(region, int(100*averate[-1]), dt)
+            label = '{} ({:.0f}%,  {})'.format(region, 100*averate[-1], dt)
 
         facecolor=None
         if j < 10:
